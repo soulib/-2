@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yahtzee Game</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        
+        .game-container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            position: relative;
+            z-index: 1;
+        }
+        
+        .dice-container {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #ecf0f1;
+            border-radius: 8px;
+            min-height: 80px;
+        }
+        
+        .die {
+            width: 60px;
+            height: 60px;
+            background-color: white;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            transform-style: preserve-3d;
+        }
+        
+        .die.rolling {
+            animation: roll 1s ease-out;
+        }
+        
+        .die.held {
+            background-color: #3498db;
+            transform: scale(1.1);
+            box-shadow: 0 0 10px rgba(52, 152, 219, 0.7);
+        }
+        
+        .dot {
+            width: 10px;
+            height: 10px;
+            background-color: #333;
+            border-radius: 50%;
+            position: absolute;
+        }
+        
+        .die.held .dot {
+            background-color: white;
+        }
+        
+        @keyframes roll {
+            0% {
+                transform: translateY(0) rotateX(0) rotateY(0);
+            }
+            20% {
+                transform: translateY(-50px) rotateX(180deg) rotateY(180deg);
+            }
+            50% {
+                transform: translateY(0) rotateX(360deg) rotateY(360deg);
+            }
+            80% {
+                transform: translateY(-20px) rotateX(540deg) rotateY(540deg);
+            }
+            100% {
+                transform: translateY(0) rotateX(720deg) rotateY(720deg);
+            }
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        button:hover {
+            background-color: #27ae60;
+        }
+        
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        
+        .roll-count {
+            text-align: center;
+            font-size: 18px;
+            margin: 10px 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background-color: #34495e;
+            color: white;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        
+        .positive {
+            color: #27ae60;
+        }
+        
+        .negative {
+            color: #e74c3c;
+        }
+        
+        /* Анимации победы/проигрыша */
+        .celebration {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+            display: none;
+        }
+        
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #f00;
+            opacity: 0;
+        }
+        
+        @keyframes confetti-fall {
+            0% {
+                transform: translateY(-100px) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+        
+        .game-over {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            display: none;
+        }
+        
+        .game-over-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .win-text {
+            color: #27ae60;
+            font-size: 2em;
+            font-weight: bold;
+        }
+        
+        .lose-text {
+            color: #e74c3c;
+            font-size: 2em;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Yahtzee</h1>
+        
+        <div class="dice-container" id="diceContainer">
+            <!-- Кубики будут добавлены через JavaScript -->
+        </div>
+        
+        <div class="roll-count">
+            Бросков осталось: <span id="rollCount">3</span>
+        </div>
+        
+        <div class="controls">
+            <button id="rollButton">Бросить кубики</button>
+            <button id="endTurnButton" disabled>Завершить ход</button>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Категория</th>
+                    <th>Очки</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Aces</td>
+                    <td id="Aces"></td>
+                </tr>
+                <tr>
+                    <td>Twos</td>
+                    <td id="Twos"></td>
+                </tr>
+                <tr>
+                    <td>Threes</td>
+                    <td id="Threes"></td>
+                </tr>
+                <tr>
+                    <td>Fours</td>
+                    <td id="Fours"></td>
+                </tr>
+                <tr>
+                    <td>Fives</td>
+                    <td id="Fives"></td>
+                </tr>
+                <tr>
+                    <td>Sixes</td>
+                    <td id="Sixes"></td>
+                </tr>
+                <tr>
+                    <td>For Bonus</td>
+                    <td id="For Bonus"></td>
+                </tr>
+                <tr>
+                    <td>3 of a kind</td>
+                    <td id="3 of a kind"></td>
+                </tr>
+                <tr>
+                    <td>4 of a kind</td>
+                    <td id="4 of a kind"></td>
+                </tr>
+                <tr>
+                    <td>Full House</td>
+                    <td id="Full House"></td>
+                </tr>
+                <tr>
+                    <td>Small Straight</td>
+                    <td id="Small Straight"></td>
+                </tr>
+                <tr>
+                    <td>Large Straight</td>
+                    <td id="Large Straight"></td>
+                </tr>
+                <tr>
+                    <td>Chance</td>
+                    <td id="Chance"></td>
+                </tr>
+                <tr>
+                    <td>Yahtzee</td>
+                    <td id="Yahtzee"></td>
+                </tr>
+                <tr>
+                    <td><strong>Total Sum</strong></td>
+                    <td id="Total Sum"><strong>0</strong></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Элементы для анимаций -->
+    <div class="celebration" id="celebration"></div>
+    
+    <div class="game-over" id="gameOver">
+        <div class="game-over-content">
+            <div id="resultText"></div>
+            <button id="playAgainButton" style="margin-top: 20px;">Играть снова</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. Состояние игры
+            const gameState = {
+                dice: [1, 1, 1, 1, 1],
+                held: [false, false, false, false, false],
+                rollCount: 0,
+                scores: {
+                    Aces: null, Twos: null, Threes: null,
+                    Fours: null, Fives: null, Sixes: null,
+                    'For Bonus': 0,
+                    '3 of a kind': null,
+                    '4 of a kind': null,
+                    'Full House': null,
+                    'Small Straight': null,
+                    'Large Straight': null,
+                    'Chance': null,
+                    'Yahtzee': null,
+                    'Total Sum': 0
+                },
+                gameEnded: false,
+                roundsPlayed: 0
+            };
+
+            // 2. Получаем элементы
+            const elements = {
+                diceContainer: document.getElementById('diceContainer'),
+                rollButton: document.getElementById('rollButton'),
+                endTurnButton: document.getElementById('endTurnButton'),
+                rollCount: document.getElementById('rollCount'),
+                scoreCells: {},
+                celebration: document.getElementById('celebration'),
+                gameOver: document.getElementById('gameOver'),
+                resultText: document.getElementById('resultText'),
+                playAgainButton: document.getElementById('playAgainButton')
+            };
+
+            // Перечень всех необходимых ячеек
+            const scoreCategories = [
+                'Aces', 'Twos', 'Threes', 'Fours', 'Fives', 'Sixes',
+                'For Bonus', '3 of a kind', '4 of a kind', 'Full House',
+                'Small Straight', 'Large Straight', 'Chance', 'Yahtzee', 'Total Sum'
+            ];
+
+            // Заполняем elements.scoreCells
+            scoreCategories.forEach(category => {
+                elements.scoreCells[category] = document.getElementById(category);
+            });
+
+            // 3. Функции для анимаций
+            function createConfetti() {
+                const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', 
+                              '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4CAF50', 
+                              '#8BC34A', '#CDDC39', '#FFEB3B', '#FFC107', '#FF9800'];
+                
+                for (let i = 0; i < 100; i++) {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.left = Math.random() * 100 + 'vw';
+                    confetti.style.width = Math.random() * 10 + 5 + 'px';
+                    confetti.style.height = Math.random() * 10 + 5 + 'px';
+                    confetti.style.animation = `confetti-fall ${Math.random() * 3 + 2}s linear forwards`;
+                    confetti.style.animationDelay = Math.random() * 2 + 's';
+                    elements.celebration.appendChild(confetti);
+                }
+                
+                elements.celebration.style.display = 'block';
+                
+                setTimeout(() => {
+                    elements.celebration.innerHTML = '';
+                    elements.celebration.style.display = 'none';
+                }, 5000);
+            }
+
+            function showResult(isWin) {
+                elements.resultText.innerHTML = isWin 
+                    ? '<div class="win-text">Победа! 🎉</div>' 
+                    : '<div class="lose-text">Попробуйте еще раз! 😊</div>';
+                
+                elements.gameOver.style.display = 'flex';
+                
+                if (isWin) {
+                    createConfetti();
+                }
+            }
+
+            // 4. Функции для отрисовки кубиков с точками
+            function createDiceFace(value, index) {
+                const die = document.createElement('div');
+                die.className = `die ${gameState.held[index] ? 'held' : ''}`;
+                die.dataset.index = index;
+                
+                // Очищаем предыдущие точки
+                die.innerHTML = '';
+                
+                // Создаем точки в зависимости от значения кубика
+                const dotPositions = {
+                    1: [[50, 50]],
+                    2: [[25, 25], [75, 75]],
+                    3: [[25, 25], [50, 50], [75, 75]],
+                    4: [[25, 25], [25, 75], [75, 25], [75, 75]],
+                    5: [[25, 25], [25, 75], [50, 50], [75, 25], [75, 75]],
+                    6: [[25, 25], [25, 50], [25, 75], [75, 25], [75, 50], [75, 75]]
+                };
+                
+                dotPositions[value].forEach(pos => {
+                    const dot = document.createElement('div');
+                    dot.className = 'dot';
+                    dot.style.left = `${pos[0]}%`;
+                    dot.style.top = `${pos[1]}%`;
+                    die.appendChild(dot);
+                });
+                
+                die.addEventListener('click', () => toggleHold(index));
+                return die;
+            }
+
+            function toggleHold(index) {
+                if (gameState.rollCount === 0) return;
+                gameState.held[index] = !gameState.held[index];
+                renderDice();
+            }
+
+            function renderDice() {
+                elements.diceContainer.innerHTML = '';
+                gameState.dice.forEach((value, index) => {
+                    elements.diceContainer.appendChild(createDiceFace(value, index));
+                });
+            }
+
+            // 5. Анимация броска кубиков
+            function rollDice() {
+                return new Promise((resolve) => {
+                    const diceElements = document.querySelectorAll('.die');
+                    let completedAnimations = 0;
+                    
+                    diceElements.forEach((die, index) => {
+                        if (!gameState.held[index]) {
+                            die.classList.add('rolling');
+                            
+                            // Генерируем случайные значения во время анимации
+                            const interval = setInterval(() => {
+                                const randomValue = Math.floor(Math.random() * 6) + 1;
+                                die.innerHTML = '';
+                                const dotPositions = {
+                                    1: [[50, 50]],
+                                    2: [[25, 25], [75, 75]],
+                                    3: [[25, 25], [50, 50], [75, 75]],
+                                    4: [[25, 25], [25, 75], [75, 25], [75, 75]],
+                                    5: [[25, 25], [25, 75], [50, 50], [75, 25], [75, 75]],
+                                    6: [[25, 25], [25, 50], [25, 75], [75, 25], [75, 50], [75, 75]]
+                                };
+                                
+                                dotPositions[randomValue].forEach(pos => {
+                                    const dot = document.createElement('div');
+                                    dot.className = 'dot';
+                                    dot.style.left = `${pos[0]}%`;
+                                    dot.style.top = `${pos[1]}%`;
+                                    die.appendChild(dot);
+                                });
+                            }, 100);
+                            
+                            setTimeout(() => {
+                                clearInterval(interval);
+                                die.classList.remove('rolling');
+                                completedAnimations++;
+                                if (completedAnimations === diceElements.length - gameState.held.filter(h => h).length) {
+                                    resolve();
+                                }
+                            }, 1000);
+                        } else {
+                            completedAnimations++;
+                            if (completedAnimations === diceElements.length - gameState.held.filter(h => h).length) {
+                                resolve();
+                            }
+                        }
+                    });
+                });
+            }
+
+            // 6. Основные функции игры
+            async function rollDiceHandler() {
+                if (gameState.rollCount >= 3) return;
+                
+                elements.rollButton.disabled = true;
+                await rollDice();
+                
+                // Устанавливаем финальные значения после анимации
+                gameState.dice = gameState.dice.map((val, i) => 
+                    gameState.held[i] ? val : Math.floor(Math.random() * 6) + 1
+                );
+                
+                gameState.rollCount++;
+                renderDice();
+                updateControls();
+                elements.rollButton.disabled = false;
+                
+                if (gameState.rollCount === 3) {
+                    calculateScores();
+                    updateScoreboard();
+                }
+            }
+
+            function calculateScores() {
+                const counts = [0, 0, 0, 0, 0, 0];
+                gameState.dice.forEach(die => counts[die-1]++);
+                
+                // Верхняя секция (Aces-Sixes)
+                for (let i = 0; i < 6; i++) {
+                    const value = i + 1;
+                    const count = counts[i];
+                    const category = ['Aces', 'Twos', 'Threes', 'Fours', 'Fives', 'Sixes'][i];
+                    
+                    if (gameState.scores[category] === null) {
+                        gameState.scores[category] = count * value;
+                    }
+                }
+                
+                // Бонус
+                const upperSum = ['Aces', 'Twos', 'Threes', 'Fours', 'Fives', 'Sixes']
+                    .reduce((sum, cat) => sum + (gameState.scores[cat] || 0), 0);
+                
+                gameState.scores['For Bonus'] = upperSum >= 63 ? 35 : 0;
+                
+                // Нижняя секция (комбинации)
+                if (gameState.scores['3 of a kind'] === null) {
+                    gameState.scores['3 of a kind'] = counts.some(c => c >= 3) ? 
+                        gameState.dice.reduce((a, b) => a + b, 0) : 0;
+                }
+                
+                if (gameState.scores['4 of a kind'] === null) {
+                    gameState.scores['4 of a kind'] = counts.some(c => c >= 4) ? 
+                        gameState.dice.reduce((a, b) => a + b, 0) : 0;
+                }
+                
+                if (gameState.scores['Full House'] === null) {
+                    gameState.scores['Full House'] = counts.some(c => c === 3) && counts.some(c => c === 2) ? 25 : 0;
+                }
+                
+                if (gameState.scores['Small Straight'] === null) {
+                    const hasSmallStraight = 
+                        (counts[0] && counts[1] && counts[2] && counts[3]) || // 1-4
+                        (counts[1] && counts[2] && counts[3] && counts[4]) || // 2-5
+                        (counts[2] && counts[3] && counts[4] && counts[5]);   // 3-6
+                    gameState.scores['Small Straight'] = hasSmallStraight ? 30 : 0;
+                }
+                
+                if (gameState.scores['Large Straight'] === null) {
+                    const hasLargeStraight = 
+                        (counts[0] && counts[1] && counts[2] && counts[3] && counts[4]) || // 1-5
+                        (counts[1] && counts[2] && counts[3] && counts[4] && counts[5]);   // 2-6
+                    gameState.scores['Large Straight'] = hasLargeStraight ? 40 : 0;
+                }
+                
+                if (gameState.scores['Chance'] === null) {
+                    gameState.scores['Chance'] = gameState.dice.reduce((a, b) => a + b, 0);
+                }
+                
+                if (gameState.scores['Yahtzee'] === null) {
+                    gameState.scores['Yahtzee'] = counts.some(c => c === 5) ? 50 : 0;
+                }
+                
+                // Общий счет
+                gameState.scores['Total Sum'] = Object.entries(gameState.scores)
+                    .filter(([key]) => key !== 'For Bonus' && key !== 'Total Sum')
+                    .reduce((sum, [key, value]) => sum + (value || 0), 0) + 
+                    gameState.scores['For Bonus'];
+            }
+
+            function updateScoreboard() {
+                for (const [category, cell] of Object.entries(elements.scoreCells)) {
+                    if (!cell) continue;
+                    
+                    const score = gameState.scores[category];
+                    cell.textContent = score !== null ? score : '';
+                    
+                    if (!['For Bonus', 'Total Sum'].includes(category)) {
+                        cell.style.color = score > 0 ? '#27ae60' : score === 0 ? '#000' : '';
+                    }
+                }
+            }
+
+            function endTurn() {
+                calculateScores();
+                updateScoreboard();
+                
+                // Проверяем условия победы/проигрыша
+                const positiveScores = scoreCategories.slice(0, 6)
+                    .filter(key => gameState.scores[key] > 0).length;
+                
+                const isWin = positiveScores >= 3;
+                showResult(isWin);
+                
+                gameState.roundsPlayed++;
+                gameState.rollCount = 0;
+                gameState.held = [false, false, false, false, false];
+                gameState.dice = [1, 1, 1, 1, 1];
+                updateControls();
+                renderDice();
+            }
+
+            // 7. Вспомогательные функции
+            function updateControls() {
+                elements.rollCount.textContent = 3 - gameState.rollCount;
+                elements.rollButton.disabled = gameState.rollCount >= 3;
+                elements.endTurnButton.disabled = gameState.rollCount === 0;
+            }
+
+            // 8. Функция сброса игры
+            function resetGame() {
+                gameState.dice = [1,1,1,1,1];
+                gameState.held = [false,false,false,false,false];
+                gameState.rollCount = 0;
+                gameState.gameEnded = false;
+                gameState.roundsPlayed = 0;
+                gameState.scores = {
+                    Aces: null, Twos: null, Threes: null,
+                    Fours: null, Fives: null, Sixes: null,
+                    'For Bonus': 0,
+                    '3 of a kind': null,
+                    '4 of a kind': null,
+                    'Full House': null,
+                    'Small Straight': null,
+                    'Large Straight': null,
+                    'Chance': null,
+                    'Yahtzee': null,
+                    'Total Sum': 0
+                };
+                updateScoreboard();
+                renderDice();
+                updateControls();
+                elements.gameOver.style.display = 'none';
+            }
+
+            // 9. Инициализация игры
+            function initGame() {
+                // Добавляем кнопку сброса
+                const resetBtn = document.createElement('button');
+                resetBtn.textContent = 'Новая игра';
+                resetBtn.addEventListener('click', resetGame);
+                document.querySelector('.controls').appendChild(resetBtn);
+
+                // Обработчик кнопки "Играть снова" - теперь вызывает resetGame()
+                elements.playAgainButton.addEventListener('click', resetGame);
+
+                // Назначаем обработчики
+                elements.rollButton.addEventListener('click', rollDiceHandler);
+                elements.endTurnButton.addEventListener('click', endTurn);
+                
+                // Первый рендер
+                resetGame(); // Используем resetGame() вместо ручной инициализации
+            }
+
+            initGame();
+        });
+    </script>
+</body>
+</html>
